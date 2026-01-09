@@ -51,7 +51,7 @@ pipeline {
 
         stage('Package') {
             steps {
-                echo "Packaging the code for version ${params.APPVERSION}"
+                echo "Packaging the code for version"
                 sh 'mvn package'
             }
         }
