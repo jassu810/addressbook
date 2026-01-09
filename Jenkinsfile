@@ -48,5 +48,12 @@ pipeline {
                 sh 'mvn verify'
             }
         }
+
+        stage('Package') {
+            steps {
+                echo "Packaging the code for version ${params.APPVERSION}"
+                sh 'mvn package'
+            }
+        }
     }
 }
