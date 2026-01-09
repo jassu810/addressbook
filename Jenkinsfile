@@ -11,6 +11,10 @@ pipeline {
         choice(name: 'APPVERSION', choices: ['1.1', '1.2', '1.3'], description: 'Select application version')
     }
 
+    environment {
+        BUILD_SERVER = 'ec2-user@172.31.5.71'
+    }
+
     stages {
 
         stage('Compile') {
@@ -51,8 +55,19 @@ pipeline {
 
         stage('Package') {
             steps {
-                echo "Packaging the code for version"
-                sh 'mvn package'
+                sshagent(['slave2']) {
+                    echo "Packaging the code version ${params.APPVERSION}"
+
+                    sh """
+                        scp -o StrictHostKeyChecking=no server-script.sh \
+                        ${BUILD_SERVER}:/home/ec2-user/
+                    """
+
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ${BUILD_SERVER} \
+                        'bash /home/ec2-user/server-script.sh'
+                    """
+                }
             }
         }
     }
