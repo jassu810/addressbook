@@ -1,29 +1,51 @@
 pipeline {
-   agent none
-   tools{
-//     jdk "myjava"
-        maven "mymaven"
-   }
+    agent any
+
+    tools {
+        maven 'Maven-3.9'
+    }
+
+    parameters {
+        string(name: 'Env', defaultValue: 'Test', description: 'Environment to deploy')
+        booleanParam(name: 'executeTests', defaultValue: true, description: 'Run unit tests')
+        choice(name: 'APPVERSION', choices: ['1.1', '1.2', '1.3'], description: 'Select application version')
+    }
+
     stages {
-        stage('Compile') { //prod
-        agent any
+
+        stage('Compile') {
             steps {
-                echo "Compile the code"
-                sh "mvn compile"
+                echo "Compiling code in ${params.Env} environment"
+                sh 'mvn clean compile'
             }
         }
-         stage('UnitTest') { //test
-         agent any
+
+        stage('Unit Test') {
+            when {
+                expression { params.executeTests }
+            }
             steps {
-                echo "Test the code"
-                sh "mvn test"
+                echo "Running unit tests in ${params.Env} environment"
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
+                }
             }
         }
-         stage('Package') {//dev
-        agent {label 'linux_slave'}
+
+        stage('Code Review') {
             steps {
-                echo "Package the code"
-                sh "mvn package"
+                echo 'Running PMD code analysis'
+                sh 'mvn pmd:pmd'
+            }
+        }
+
+        stage('Coverage') {
+            steps {
+                echo 'Running code coverage verification'
+                sh 'mvn verify'
             }
         }
     }
