@@ -12,8 +12,9 @@ pipeline {
     }
 
     environment {
-        BUILD_SERVER = 'ec2-user@172.31.6.105'
-        IMAGE_NAME   = "jassu810/java-mvn-privaterepos:${BUILD_NUMBER}"
+        BUILD_SERVER  = 'ec2-user@172.31.6.105'
+        DEPLOY_SERVER = 'ec2-user@172.31.5.217'
+        IMAGE_NAME    = "jassu810/java-mvn-privaterepos:${BUILD_NUMBER}"
     }
 
     stages {
@@ -60,16 +61,15 @@ pipeline {
                     withCredentials([
                         usernamePassword(
                             credentialsId: 'docker-hub',
-                            usernameVariable: 'username',
-                            passwordVariable: 'password'
+                            usernameVariable: 'USERNAME',
+                            passwordVariable: 'PASSWORD'
                         )
                     ]) {
 
                         echo "Packaging the code version ${params.APPVERSION}"
 
                         sh """
-                            scp -o StrictHostKeyChecking=no server-script.sh \
-                            ${BUILD_SERVER}:/home/ec2-user/
+                            scp -o StrictHostKeyChecking=no server-script.sh ${BUILD_SERVER}:/home/ec2-user/
                         """
 
                         sh """
@@ -79,12 +79,42 @@ pipeline {
 
                         sh """
                             ssh -o StrictHostKeyChecking=no ${BUILD_SERVER} \
-                            "sudo docker login -u ${username} -p ${password}"
+                            "sudo docker login -u ${USERNAME} -p ${PASSWORD}"
                         """
 
                         sh """
                             ssh -o StrictHostKeyChecking=no ${BUILD_SERVER} \
                             "sudo docker push ${IMAGE_NAME}"
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Docker Image') {
+            steps {
+                sshagent(['slave2']) {
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'docker-hub',
+                            usernameVariable: 'USERNAME',
+                            passwordVariable: 'PASSWORD'
+                        )
+                    ]) {
+
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${DEPLOY_SERVER} \
+                            "sudo yum install -y docker && sudo systemctl start docker"
+                        """
+
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${DEPLOY_SERVER} \
+                            "sudo docker login -u ${USERNAME} -p ${PASSWORD}"
+                        """
+
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${DEPLOY_SERVER} \
+                            "sudo docker run -itd -P ${IMAGE_NAME}"
                         """
                     }
                 }
