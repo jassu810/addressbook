@@ -13,7 +13,7 @@ pipeline {
 
     environment {
         BUILD_SERVER = 'ec2-user@172.31.6.105'
-        IMAGE_NAME = 'jassu810/java-mvn-privaterepos:$BUILD_NUMBER'
+        IMAGE_NAME   = "jassu810/java-mvn-privaterepos:${BUILD_NUMBER}"
     }
 
     stages {
@@ -54,23 +54,39 @@ pipeline {
             }
         }
 
-        stage('Build docker image ') {
+        stage('Build & Push Docker Image') {
             steps {
                 sshagent(['slave2']) {
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub', passwordVariable: 'password', usernameVariable: 'username')]) {
-                    echo "Packaging the code version ${params.APPVERSION}"
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'docker-hub',
+                            usernameVariable: 'username',
+                            passwordVariable: 'password'
+                        )
+                    ]) {
 
-                    sh """
-                        scp -o StrictHostKeyChecking=no server-script.sh \
-                        ${BUILD_SERVER}:/home/ec2-user/
-                    """
+                        echo "Packaging the code version ${params.APPVERSION}"
 
-                    sh """
-                        ssh -o StrictHostKeyChecking=no ${BUILD_SERVER} \
-                        'bash /home/ec2-user/server-script.sh ${IMAGE_NAME}'
-                    """
-                    sh "ssh -o ${BUILD_SERVER} sudo docker login -u ${usename} -p ${password}"
-                    sh  "ssh -o ${BUILD_SERVER} sudo docker push $(IMAGE_NAME}"
+                        sh """
+                            scp -o StrictHostKeyChecking=no server-script.sh \
+                            ${BUILD_SERVER}:/home/ec2-user/
+                        """
+
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${BUILD_SERVER} \
+                            "bash /home/ec2-user/server-script.sh ${IMAGE_NAME}"
+                        """
+
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${BUILD_SERVER} \
+                            "sudo docker login -u ${username} -p ${password}"
+                        """
+
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${BUILD_SERVER} \
+                            "sudo docker push ${IMAGE_NAME}"
+                        """
+                    }
                 }
             }
         }
