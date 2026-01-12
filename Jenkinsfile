@@ -61,14 +61,16 @@ pipeline {
                             passwordVariable: 'DOCKER_PASS'
                         )
                     ]) {
-                        sh """
+                        sh '''
                         scp -o StrictHostKeyChecking=no server-script.sh ${BUILD_SERVER}:/home/ec2-user/
-                        ssh -o StrictHostKeyChecking=no ${BUILD_SERVER} '
-                            echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin &&
-                            bash /home/ec2-user/server-script.sh ${IMAGE_NAME} &&
-                            docker push ${IMAGE_NAME}
-                        '
-                        """
+
+                        ssh -o StrictHostKeyChecking=no ${BUILD_SERVER} << 'EOF'
+                          sudo systemctl start docker || true
+                          echo "$DOCKER_PASS" | sudo docker login -u "$DOCKER_USER" --password-stdin
+                          bash /home/ec2-user/server-script.sh ${IMAGE_NAME}
+                          sudo docker push ${IMAGE_NAME}
+                        EOF
+                        '''
                     }
                 }
             }
@@ -84,14 +86,15 @@ pipeline {
                             passwordVariable: 'DOCKER_PASS'
                         )
                     ]) {
-                        sh """
-                        ssh -o StrictHostKeyChecking=no ${DEPLOY_SERVER} '
-                            echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin &&
-                            docker stop app || true &&
-                            docker rm app || true &&
-                            docker run -d --name app -p 8080:8080 ${IMAGE_NAME}
-                        '
-                        """
+                        sh '''
+                        ssh -o StrictHostKeyChecking=no ${DEPLOY_SERVER} << 'EOF'
+                          sudo systemctl start docker || true
+                          echo "$DOCKER_PASS" | sudo docker login -u "$DOCKER_USER" --password-stdin
+                          sudo docker stop app || true
+                          sudo docker rm app || true
+                          sudo docker run -d --name app -p 8080:8080 ${IMAGE_NAME}
+                        EOF
+                        '''
                     }
                 }
             }
