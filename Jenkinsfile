@@ -12,7 +12,8 @@ pipeline {
     }
 
     environment {
-        BUILD_SERVER = 'ec2-user@172.31.5.71'
+        BUILD_SERVER = 'ec2-user@172.31.6.105'
+        IMAGE_NAME = 'jassu810/java-mvn-privaterepos:$BUILD_NUMBER'
     }
 
     stages {
@@ -53,9 +54,10 @@ pipeline {
             }
         }
 
-        stage('Package') {
+        stage('Build docker image ') {
             steps {
                 sshagent(['slave2']) {
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub', passwordVariable: 'password', usernameVariable: 'username')]) {
                     echo "Packaging the code version ${params.APPVERSION}"
 
                     sh """
@@ -65,8 +67,10 @@ pipeline {
 
                     sh """
                         ssh -o StrictHostKeyChecking=no ${BUILD_SERVER} \
-                        'bash /home/ec2-user/server-script.sh'
+                        'bash /home/ec2-user/server-script.sh ${IMAGE_NAME}'
                     """
+                    sh "ssh -o ${BUILD_SERVER} sudo docker login -u ${usename} -p ${password}"
+                    sh  "ssh -o ${BUILD_SERVER} sudo docker push $(IMAGE_NAME}"
                 }
             }
         }
